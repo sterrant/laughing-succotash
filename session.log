@@ -1,0 +1,87 @@
+RUN
+                             LUNAR LANDER
+
+                             by Dave Ahl
+Do you want instructionsN
+Beginning landing procedure..........
+
+DIGBY WISHES YOU GOOD LUCK !!!!!!!
+
+SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
+
+ 0    1000      50        150     I                               *
+?
+ 1    947.5     55        150     I                           *
+?
+ 2    890       60        150     I                       *
+?
+ 3    827.5     65        150     I                   *
+?
+ 4    760       70        150     I               *
+? 10
+ 5    692.5     65        140     I          *
+? 10
+ 6    630       60        130     I      *
+? 10
+ 7    572.5     55        120     I  *
+? 10
+ 8    520       50        110     I
+                                  *
+? 10
+ 9    472.5     45        100     I
+                               *
+? 10
+ 10   430       40        90      I
+                            *
+? 10
+ 11   392.5     35        80      I
+                         *
+? 10
+ 12   360       30        70      I
+                       *
+? 5
+ 13   330       30        65      I
+                     *
+? 5
+ 14   300       30        60      I
+                   *
+? 5
+ 15   270       30        55      I
+                 *
+? 5
+ 16   240       30        50      I
+               *
+? 5
+ 17   210       30        45      I
+             *
+? 5
+ 18   180       30        40      I
+           *
+? 5
+ 19   150       30        35      I
+         *
+? 5
+ 20   120       30        30      I
+       *
+? 5
+ 21   90        30        25      I
+     *
+? 10
+ 22   62.5      25        15      I
+   *
+? 5
+ 23   37.5      25        10      I
+  *
+? 10
+**** OUT OF FUEL ****
+
+ 24   15        20        0       I
+*
+***** CONTACT *****
+Touchdown at 24.6904 seconds.
+Landing velocity= 23.4521 feet/sec.
+ 0 units of fuel remaining.
+You blasted a huge crater !!!!!
+Your family will be notified..............by post.
+
+Another missionY
