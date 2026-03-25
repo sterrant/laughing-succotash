@@ -1,0 +1,32 @@
+{
+  "serial": {
+    "port": "/dev/ttyUSB0",
+    "baudrate": 19200,
+    "bytesize": "EIGHTBITS",
+    "parity": "PARITY_NONE",
+    "stopbits": 1,
+    "timeout": 0.1,
+    "encoding": "ascii",
+    "tx_line_ending": "\r"
+  },
+  "parser": {
+    "prompt_patterns": [
+      "^\\?\\s*$",
+      "^\\?\\s*[-+]?\\d*(?:\\.\\d+)?\\s*$"
+    ],
+    "state_pattern": "^\\s*(?P<sec>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<altitude>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<velocity>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<fuel>[-+]?\\d+(?:\\.\\d+)?)(?:\\s+.*)?$",
+    "ignore_patterns": [
+      "PLOT OF DISTANCE",
+      "^\\s*I\\s*\\*?\\s*$",
+      "^\\s*\\*\\s*$"
+    ],
+    "extra_patterns": {}
+  },
+  "policy": {
+    "min_burn": 0,
+    "max_burn": 30
+  },
+  "logging": {
+    "csv_path": "logs/turns.csv"
+  }
+}
