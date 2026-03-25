@@ -33,6 +33,8 @@ python3 cpm_lander_agent.py --mode live --config config.json
 
 ## Replay mode
 Save a previous console session to a text file and run:
+You can use the included `session.log` sample file for a quick test.
+
 ```bash
 python3 cpm_lander_agent.py --mode replay --config config.json --replay-file session.log
 ```
