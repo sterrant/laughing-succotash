@@ -26,6 +26,18 @@
     "min_burn": 0,
     "max_burn": 30
   },
+  "automation": {
+    "startup_delay_sec": 1.0,
+    "startup_commands": [
+      "RUN"
+    ],
+    "auto_responses": [
+      {
+        "pattern": "Another mission\\s*[YN]?$",
+        "response": "Y"
+      }
+    ]
+  },
   "logging": {
     "csv_path": "logs/turns.csv"
   }

@@ -25,6 +25,15 @@ Edit `config.json`:
 - `serial.port` for your USB/serial adapter.
 - `serial.tx_line_ending` to match what MBASIC expects (`"\\r"` is common).
 - `parser.prompt_patterns` / `parser.state_pattern` if your listing differs.
+- `automation.startup_commands` to send startup input (for example `"RUN"`).
+- `automation.auto_responses` for non-throttle prompts (for example `"Another mission" -> "Y"`).
+
+### Unattended startup / restart behavior
+By default, the sample config is set to:
+- send `RUN` once after connect (`automation.startup_commands`)
+- respond `Y` to `Another mission` prompts (`automation.auto_responses`)
+
+Disable either behavior by setting the list to `[]`.
 
 ## Live mode
 ```bash

@@ -47,6 +47,7 @@ class Parser:
 
     def __init__(self, cfg: Dict):
         parser_cfg = cfg["parser"]
+        automation_cfg = cfg.get("automation", {})
 
         self.prompt_patterns = [re.compile(p) for p in parser_cfg["prompt_patterns"]]
         self.state_pattern = re.compile(parser_cfg["state_pattern"])
@@ -57,6 +58,10 @@ class Parser:
             name: re.compile(pat)
             for name, pat in parser_cfg.get("extra_patterns", {}).items()
         }
+        self.auto_responses = [
+            (re.compile(item["pattern"]), str(item["response"]))
+            for item in automation_cfg.get("auto_responses", [])
+        ]
 
     def is_prompt(self, line: str) -> bool:
         return any(p.search(line) for p in self.prompt_patterns)
@@ -90,6 +95,12 @@ class Parser:
                     pass
 
         return state
+
+    def match_auto_response(self, line: str) -> Optional[str]:
+        for pattern, response in self.auto_responses:
+            if pattern.search(line):
+                return response
+        return None
 
 
 class BasePolicy:
@@ -206,6 +217,16 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
     )
 
     print(f"[agent] connected to {ser.port} @ {ser.baudrate} bps")
+    automation_cfg = cfg.get("automation", {})
+    startup_delay = float(automation_cfg.get("startup_delay_sec", 0))
+    startup_commands = [str(c) for c in automation_cfg.get("startup_commands", [])]
+    if startup_delay > 0:
+        time.sleep(startup_delay)
+    for cmd in startup_commands:
+        payload = f"{cmd}{line_ending}"
+        ser.write(payload.encode(serial_cfg.get("encoding", "ascii"), errors="replace"))
+        print(f"[agent] startup_send={cmd!r}")
+
     buf = ""
     last_state: Optional[GameState] = None
 
@@ -230,6 +251,13 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
                 state = parser.parse_state(line)
                 if state:
                     last_state = state
+
+                auto_reply = parser.match_auto_response(line)
+                if auto_reply is not None:
+                    payload = f"{auto_reply}{line_ending}"
+                    ser.write(payload.encode(serial_cfg.get("encoding", "ascii"), errors="replace"))
+                    print(f"[agent] auto_reply={auto_reply!r}")
+                    continue
 
                 if parser.is_prompt(line):
                     burn = policy.choose_burn(last_state)
@@ -262,6 +290,11 @@ def run_replay(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger
         state = parser.parse_state(line)
         if state:
             last_state = state
+
+        auto_reply = parser.match_auto_response(line)
+        if auto_reply is not None:
+            print(f"[replay] auto_reply={auto_reply!r}")
+            continue
 
         if parser.is_prompt(line):
             burn = policy.choose_burn(last_state)
