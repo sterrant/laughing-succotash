@@ -25,6 +25,7 @@ Edit `config.json`:
 - `serial.port` for your USB/serial adapter.
 - Default serial framing in this repo is set to **19,200 bps, 7E1** (`SEVENBITS`, `PARITY_EVEN`, `stopbits: 1`).
 - `serial.tx_line_ending` must match your BASIC monitor; this repo now defaults to `"\\r\\n"` (CR+LF).
+- `serial.tx_char_delay_sec` adds per-character pacing (default `0.02`) for older UARTs that can drop characters.
 - `parser.prompt_patterns` / `parser.state_pattern` if your listing differs.
 - `automation.startup_commands` to send startup input (for example `"RUN"`).
 - `automation.auto_responses` for non-throttle prompts (for example `"Another mission" -> "Y"`).
@@ -40,6 +41,7 @@ Disable either behavior by setting the list to `[]`.
 This is usually serial framing or line-ending mismatch. Verify:
 - 19,200 bps, 7E1 (`SEVENBITS` + `PARITY_EVEN` + `stopbits: 1`)
 - `tx_line_ending` is `\"\\r\\n\"` (CR+LF)
+- If you still see truncated input like `RU`, increase `tx_char_delay_sec` (for example `0.05`).
 
 ## Live mode
 ```bash

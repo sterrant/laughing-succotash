@@ -7,7 +7,8 @@
     "stopbits": 1,
     "timeout": 0.1,
     "encoding": "ascii",
-    "tx_line_ending": "\r\n"
+    "tx_line_ending": "\r\n",
+    "tx_char_delay_sec": 0.02
   },
   "parser": {
     "prompt_patterns": [

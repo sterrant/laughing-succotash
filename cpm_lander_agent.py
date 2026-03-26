@@ -206,6 +206,7 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
 
     serial_cfg = cfg["serial"]
     line_ending = _decode_line_ending(serial_cfg.get("tx_line_ending", "\\r"))
+    tx_char_delay = float(serial_cfg.get("tx_char_delay_sec", 0.0))
 
     ser = serial.Serial(
         port=serial_cfg["port"],
@@ -223,8 +224,13 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
     if startup_delay > 0:
         time.sleep(startup_delay)
     for cmd in startup_commands:
-        payload = f"{cmd}{line_ending}"
-        ser.write(payload.encode(serial_cfg.get("encoding", "ascii"), errors="replace"))
+        _send_line(
+            ser,
+            cmd,
+            line_ending=line_ending,
+            encoding=serial_cfg.get("encoding", "ascii"),
+            tx_char_delay=tx_char_delay,
+        )
         print(f"[agent] startup_send={cmd!r}")
 
     buf = ""
@@ -254,15 +260,25 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
 
                 auto_reply = parser.match_auto_response(line)
                 if auto_reply is not None:
-                    payload = f"{auto_reply}{line_ending}"
-                    ser.write(payload.encode(serial_cfg.get("encoding", "ascii"), errors="replace"))
+                    _send_line(
+                        ser,
+                        auto_reply,
+                        line_ending=line_ending,
+                        encoding=serial_cfg.get("encoding", "ascii"),
+                        tx_char_delay=tx_char_delay,
+                    )
                     print(f"[agent] auto_reply={auto_reply!r}")
                     continue
 
                 if parser.is_prompt(line):
                     burn = policy.choose_burn(last_state)
-                    payload = f"{burn}{line_ending}"
-                    ser.write(payload.encode(serial_cfg.get("encoding", "ascii"), errors="replace"))
+                    _send_line(
+                        ser,
+                        str(burn),
+                        line_ending=line_ending,
+                        encoding=serial_cfg.get("encoding", "ascii"),
+                        tx_char_delay=tx_char_delay,
+                    )
                     logger.log_turn("live", last_state, burn)
                     print(f"[agent] burn={burn}")
 
@@ -323,6 +339,26 @@ def _split_complete_lines(buf: str) -> List[str]:
 
 def _decode_line_ending(s: str) -> str:
     return s.encode("utf-8").decode("unicode_escape")
+
+
+def _send_line(
+    ser,
+    text: str,
+    *,
+    line_ending: str,
+    encoding: str,
+    tx_char_delay: float,
+) -> None:
+    payload = f"{text}{line_ending}"
+    if tx_char_delay <= 0:
+        ser.write(payload.encode(encoding, errors="replace"))
+        return
+
+    # Some vintage systems overrun UART input at sustained host-side speed.
+    # Send one byte at a time with a configurable delay.
+    for ch in payload:
+        ser.write(ch.encode(encoding, errors="replace"))
+        time.sleep(tx_char_delay)
 
 
 def _to_float(v: Optional[str]) -> Optional[float]:
