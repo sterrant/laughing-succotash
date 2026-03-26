@@ -23,7 +23,8 @@ pip install -r requirements.txt
 ## Configure
 Edit `config.json`:
 - `serial.port` for your USB/serial adapter.
-- `serial.tx_line_ending` to match what MBASIC expects (`"\\r"` is common).
+- Default serial framing in this repo is set to **19,200 bps, 7E1** (`SEVENBITS`, `PARITY_EVEN`, `stopbits: 1`).
+- `serial.tx_line_ending` must match your BASIC monitor; this repo now defaults to `"\\r\\n"` (CR+LF).
 - `parser.prompt_patterns` / `parser.state_pattern` if your listing differs.
 - `automation.startup_commands` to send startup input (for example `"RUN"`).
 - `automation.auto_responses` for non-throttle prompts (for example `"Another mission" -> "Y"`).
@@ -34,6 +35,11 @@ By default, the sample config is set to:
 - respond `Y` to `Another mission` prompts (`automation.auto_responses`)
 
 Disable either behavior by setting the list to `[]`.
+
+### If `RUN` returns `Syntax error`
+This is usually serial framing or line-ending mismatch. Verify:
+- 19,200 bps, 7E1 (`SEVENBITS` + `PARITY_EVEN` + `stopbits: 1`)
+- `tx_line_ending` is `\"\\r\\n\"` (CR+LF)
 
 ## Live mode
 ```bash

@@ -2,12 +2,12 @@
   "serial": {
     "port": "/dev/ttyUSB0",
     "baudrate": 19200,
-    "bytesize": "EIGHTBITS",
-    "parity": "PARITY_NONE",
+    "bytesize": "SEVENBITS",
+    "parity": "PARITY_EVEN",
     "stopbits": 1,
     "timeout": 0.1,
     "encoding": "ascii",
-    "tx_line_ending": "\r"
+    "tx_line_ending": "\r\n"
   },
   "parser": {
     "prompt_patterns": [
