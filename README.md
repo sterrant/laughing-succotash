@@ -29,6 +29,8 @@ Edit `config.json`:
 - `parser.prompt_patterns` / `parser.state_pattern` if your listing differs.
 - `automation.startup_commands` to send startup input (for example `"RUN"`).
 - `automation.auto_responses` for non-throttle prompts (for example `"Another mission" -> "Y"`).
+- `parser.contact_pattern` + metric patterns parse terminal CONTACT outcome stats.
+- `optimizer.enabled` turns on simple random-search parameter tuning between runs.
 
 ### Unattended startup / restart behavior
 By default, the sample config is set to:
@@ -66,9 +68,20 @@ Replay mode echoes the file, runs parser + policy, and appends decisions to CSV.
 - **Line ending quirks:** try `"\\r\\n"` or `"\\n"` if input is not accepted.
 
 ## Output logs
-Decisions are appended to `logs/turns.csv` with:
+Per-turn decisions are appended to `logs/turns.csv` with:
 - timestamp
 - mode (`live`/`replay`)
+- episode_id
 - sec, altitude, velocity, fuel
 - chosen burn
 - raw parsed state line
+
+Per-episode outcomes are appended to `logs/episodes.csv` with:
+- episode_id, timestamp, mode
+- contact_occurred
+- touchdown_time_seconds
+- landing_velocity_fps
+- fuel_remaining_units
+- reward (`-landing_velocity_fps`)
+- run summary stats (`turns`, `min_altitude`, `max_speed`)
+- `policy_params_json`

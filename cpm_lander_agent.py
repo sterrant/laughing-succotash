@@ -20,12 +20,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import random
 import re
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import json
 
@@ -62,6 +63,27 @@ class Parser:
             (re.compile(item["pattern"]), str(item["response"]))
             for item in automation_cfg.get("auto_responses", [])
         ]
+        self.contact_pattern = re.compile(
+            parser_cfg.get("contact_pattern", r"^\*{5}\s*CONTACT\s*\*{5}\s*$")
+        )
+        self.touchdown_pattern = re.compile(
+            parser_cfg.get(
+                "touchdown_pattern",
+                r"Touchdown at\s*(?P<touchdown_time_seconds>[-+]?\d+(?:\.\d+)?)\s*seconds\.",
+            )
+        )
+        self.landing_velocity_pattern = re.compile(
+            parser_cfg.get(
+                "landing_velocity_pattern",
+                r"Landing velocity=\s*(?P<landing_velocity_fps>[-+]?\d+(?:\.\d+)?)\s*feet/sec\.",
+            )
+        )
+        self.fuel_remaining_pattern = re.compile(
+            parser_cfg.get(
+                "fuel_remaining_pattern",
+                r"(?P<fuel_remaining_units>[-+]?\d+(?:\.\d+)?)\s*units of fuel remaining\.",
+            )
+        )
 
     def is_prompt(self, line: str) -> bool:
         return any(p.search(line) for p in self.prompt_patterns)
@@ -102,6 +124,73 @@ class Parser:
                 return response
         return None
 
+    def is_contact(self, line: str) -> bool:
+        return bool(self.contact_pattern.search(line.strip()))
+
+    def parse_touchdown_time(self, line: str) -> Optional[float]:
+        m = self.touchdown_pattern.search(line)
+        if not m:
+            return None
+        return _to_float(m.group("touchdown_time_seconds"))
+
+    def parse_landing_velocity(self, line: str) -> Optional[float]:
+        m = self.landing_velocity_pattern.search(line)
+        if not m:
+            return None
+        return _to_float(m.group("landing_velocity_fps"))
+
+    def parse_fuel_remaining(self, line: str) -> Optional[float]:
+        m = self.fuel_remaining_pattern.search(line)
+        if not m:
+            return None
+        return _to_float(m.group("fuel_remaining_units"))
+
+
+@dataclass
+class EpisodeSummary:
+    episode_id: int
+    mode: str
+    start_timestamp: float
+    end_timestamp: Optional[float] = None
+    contact_occurred: bool = False
+    touchdown_time_seconds: Optional[float] = None
+    landing_velocity_fps: Optional[float] = None
+    fuel_remaining_units: Optional[float] = None
+    reward: Optional[float] = None
+    turns: int = 0
+    min_altitude: Optional[float] = None
+    max_speed: Optional[float] = None
+    policy_params_json: str = "{}"
+
+    def is_complete(self) -> bool:
+        return (
+            self.contact_occurred
+            and self.touchdown_time_seconds is not None
+            and self.landing_velocity_fps is not None
+            and self.fuel_remaining_units is not None
+        )
+
+
+class OutcomeExtractor:
+    """Extract terminal CONTACT metrics and compute reward."""
+
+    def __init__(self, parser: Parser):
+        self.parser = parser
+
+    def process_line(self, summary: EpisodeSummary, line: str) -> None:
+        if self.parser.is_contact(line):
+            summary.contact_occurred = True
+        td = self.parser.parse_touchdown_time(line)
+        if td is not None:
+            summary.touchdown_time_seconds = td
+        lv = self.parser.parse_landing_velocity(line)
+        if lv is not None:
+            summary.landing_velocity_fps = lv
+            summary.reward = compute_reward(lv)
+        fr = self.parser.parse_fuel_remaining(line)
+        if fr is not None:
+            summary.fuel_remaining_units = fr
+
 
 class BasePolicy:
     """Policy interface so a learned policy can be plugged in later."""
@@ -109,13 +198,40 @@ class BasePolicy:
     def choose_burn(self, state: Optional[GameState]) -> int:
         raise NotImplementedError
 
+    def get_params(self) -> Dict:
+        return {}
+
+    def set_params(self, params: Dict) -> None:
+        del params
+
 
 class RuleBasedPolicy(BasePolicy):
     """Simple baseline policy with conservative late-stage braking."""
 
     def __init__(self, cfg: Dict):
-        self.max_burn = int(cfg["policy"].get("max_burn", 30))
-        self.min_burn = int(cfg["policy"].get("min_burn", 0))
+        policy_cfg = cfg["policy"]
+        self.max_burn = int(policy_cfg.get("max_burn", 30))
+        self.min_burn = int(policy_cfg.get("min_burn", 0))
+        p = policy_cfg.get("parameters", {})
+        self.params = {
+            "target_v_high": float(p.get("target_v_high", 70)),
+            "target_v_mid_high": float(p.get("target_v_mid_high", 45)),
+            "target_v_mid": float(p.get("target_v_mid", 30)),
+            "target_v_low": float(p.get("target_v_low", 20)),
+            "target_v_final": float(p.get("target_v_final", 10)),
+            "burn_small": float(p.get("burn_small", 3)),
+            "burn_medium": float(p.get("burn_medium", 6)),
+            "burn_large": float(p.get("burn_large", 10)),
+            "burn_max": float(p.get("burn_max", 15)),
+        }
+
+    def get_params(self) -> Dict:
+        return dict(self.params)
+
+    def set_params(self, params: Dict) -> None:
+        for k in self.params:
+            if k in params:
+                self.params[k] = float(params[k])
 
     def choose_burn(self, state: Optional[GameState]) -> int:
         if state is None:
@@ -130,31 +246,66 @@ class RuleBasedPolicy(BasePolicy):
 
         # Piecewise heuristic tuned to the classic Ahl listing behavior.
         if alt > 700:
-            target_v = 70
+            target_v = self.params["target_v_high"]
         elif alt > 400:
-            target_v = 45
+            target_v = self.params["target_v_mid_high"]
         elif alt > 200:
-            target_v = 30
+            target_v = self.params["target_v_mid"]
         elif alt > 80:
-            target_v = 20
+            target_v = self.params["target_v_low"]
         else:
-            target_v = 10
+            target_v = self.params["target_v_final"]
 
         error = vel - target_v
         if error <= 0:
             burn = 0
         elif error < 5:
-            burn = 3
+            burn = self.params["burn_small"]
         elif error < 10:
-            burn = 6
+            burn = self.params["burn_medium"]
         elif error < 20:
-            burn = 10
+            burn = self.params["burn_large"]
         else:
-            burn = 15
+            burn = self.params["burn_max"]
 
-        burn = max(self.min_burn, min(self.max_burn, burn))
+        burn = max(self.min_burn, min(self.max_burn, int(round(burn))))
         burn = min(burn, int(fuel))
         return burn
+
+
+class RandomSearchOptimizer:
+    """Simple optimizer: keep best params by reward, sample around best."""
+
+    def __init__(self, cfg: Dict):
+        opt_cfg = cfg.get("optimizer", {})
+        self.enabled = bool(opt_cfg.get("enabled", False))
+        self.sigma = float(opt_cfg.get("sigma", 2.0))
+        self.ranges = opt_cfg.get("param_ranges", {})
+        self.best_reward = float("-inf")
+        self.best_params: Optional[Dict] = None
+
+    def maybe_update(self, policy: BasePolicy, summary: EpisodeSummary) -> None:
+        if not self.enabled or summary.reward is None:
+            return
+        current = policy.get_params()
+        if summary.reward > self.best_reward:
+            self.best_reward = summary.reward
+            self.best_params = dict(current)
+            print(f"[optimizer] new best reward={summary.reward:.4f} params={self.best_params}")
+        next_params = self._sample_around_best(current)
+        policy.set_params(next_params)
+        print(f"[optimizer] next params={policy.get_params()}")
+
+    def _sample_around_best(self, fallback: Dict) -> Dict:
+        base = self.best_params if self.best_params is not None else fallback
+        out = dict(base)
+        for name, r in self.ranges.items():
+            lo = float(r.get("min"))
+            hi = float(r.get("max"))
+            center = float(base.get(name, (lo + hi) / 2))
+            proposal = random.gauss(center, self.sigma)
+            out[name] = max(lo, min(hi, proposal))
+        return out
 
 
 class TurnLogger:
@@ -169,6 +320,7 @@ class TurnLogger:
             fieldnames=[
                 "timestamp",
                 "mode",
+                "episode_id",
                 "sec",
                 "altitude",
                 "velocity",
@@ -181,11 +333,12 @@ class TurnLogger:
             self.writer.writeheader()
             self.fp.flush()
 
-    def log_turn(self, mode: str, state: Optional[GameState], burn: int):
+    def log_turn(self, mode: str, episode_id: int, state: Optional[GameState], burn: int):
         self.writer.writerow(
             {
                 "timestamp": time.time(),
                 "mode": mode,
+                "episode_id": episode_id,
                 "sec": _safe_num(state.sec if state else None),
                 "altitude": _safe_num(state.altitude if state else None),
                 "velocity": _safe_num(state.velocity if state else None),
@@ -200,7 +353,65 @@ class TurnLogger:
         self.fp.close()
 
 
-def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) -> None:
+class EpisodeLogger:
+    """CSV logger for per-episode outcomes."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.fp = self.path.open("a", newline="", encoding="utf-8")
+        self.writer = csv.DictWriter(
+            self.fp,
+            fieldnames=[
+                "episode_id",
+                "timestamp",
+                "mode",
+                "contact_occurred",
+                "touchdown_time_seconds",
+                "landing_velocity_fps",
+                "fuel_remaining_units",
+                "reward",
+                "turns",
+                "min_altitude",
+                "max_speed",
+                "policy_params_json",
+            ],
+        )
+        if self.path.stat().st_size == 0:
+            self.writer.writeheader()
+            self.fp.flush()
+
+    def log_episode(self, summary: EpisodeSummary):
+        self.writer.writerow(
+            {
+                "episode_id": summary.episode_id,
+                "timestamp": summary.end_timestamp if summary.end_timestamp else time.time(),
+                "mode": summary.mode,
+                "contact_occurred": summary.contact_occurred,
+                "touchdown_time_seconds": _safe_num(summary.touchdown_time_seconds),
+                "landing_velocity_fps": _safe_num(summary.landing_velocity_fps),
+                "fuel_remaining_units": _safe_num(summary.fuel_remaining_units),
+                "reward": _safe_num(summary.reward),
+                "turns": summary.turns,
+                "min_altitude": _safe_num(summary.min_altitude),
+                "max_speed": _safe_num(summary.max_speed),
+                "policy_params_json": summary.policy_params_json,
+            }
+        )
+        self.fp.flush()
+
+    def close(self):
+        self.fp.close()
+
+
+def run_live(
+    cfg: Dict,
+    parser: Parser,
+    policy: BasePolicy,
+    turn_logger: TurnLogger,
+    episode_logger: EpisodeLogger,
+    optimizer: RandomSearchOptimizer,
+) -> None:
     # Import here so replay mode can run without serial hardware dependencies installed.
     import serial
 
@@ -235,6 +446,8 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
 
     buf = ""
     last_state: Optional[GameState] = None
+    outcome = OutcomeExtractor(parser)
+    episode = _new_episode(1, "live", policy)
 
     try:
         while True:
@@ -257,6 +470,20 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
                 state = parser.parse_state(line)
                 if state:
                     last_state = state
+                    episode.min_altitude = (
+                        state.altitude
+                        if episode.min_altitude is None
+                        else min(episode.min_altitude, state.altitude if state.altitude is not None else episode.min_altitude)
+                    )
+                    episode.max_speed = (
+                        state.velocity
+                        if episode.max_speed is None
+                        else max(episode.max_speed, state.velocity if state.velocity is not None else episode.max_speed)
+                    )
+                outcome.process_line(episode, line)
+                if episode.is_complete():
+                    _finalize_episode(episode, episode_logger, optimizer, policy)
+                    episode = _new_episode(episode.episode_id + 1, "live", policy)
 
                 auto_reply = parser.match_auto_response(line)
                 if auto_reply is not None:
@@ -279,7 +506,8 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
                         encoding=serial_cfg.get("encoding", "ascii"),
                         tx_char_delay=tx_char_delay,
                     )
-                    logger.log_turn("live", last_state, burn)
+                    episode.turns += 1
+                    turn_logger.log_turn("live", episode.episode_id, last_state, burn)
                     print(f"[agent] burn={burn}")
 
             # Some BASIC prompts (e.g. "?") are emitted without CR/LF.
@@ -305,7 +533,8 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
                         encoding=serial_cfg.get("encoding", "ascii"),
                         tx_char_delay=tx_char_delay,
                     )
-                    logger.log_turn("live", last_state, burn)
+                    episode.turns += 1
+                    turn_logger.log_turn("live", episode.episode_id, last_state, burn)
                     print(f"[agent] burn={burn}")
                     buf = ""
 
@@ -315,13 +544,23 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
         ser.close()
 
 
-def run_replay(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger, replay_file: Path) -> None:
+def run_replay(
+    cfg: Dict,
+    parser: Parser,
+    policy: BasePolicy,
+    turn_logger: TurnLogger,
+    episode_logger: EpisodeLogger,
+    optimizer: RandomSearchOptimizer,
+    replay_file: Path,
+) -> None:
     """Replay a saved console text log for parser/policy testing."""
 
     if not replay_file.exists():
         raise FileNotFoundError(f"Replay file not found: {replay_file}")
 
     last_state: Optional[GameState] = None
+    outcome = OutcomeExtractor(parser)
+    episode = _new_episode(1, "replay", policy)
     text = replay_file.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines(keepends=True)
 
@@ -333,6 +572,20 @@ def run_replay(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger
         state = parser.parse_state(line)
         if state:
             last_state = state
+            episode.min_altitude = (
+                state.altitude
+                if episode.min_altitude is None
+                else min(episode.min_altitude, state.altitude if state.altitude is not None else episode.min_altitude)
+            )
+            episode.max_speed = (
+                state.velocity
+                if episode.max_speed is None
+                else max(episode.max_speed, state.velocity if state.velocity is not None else episode.max_speed)
+            )
+        outcome.process_line(episode, line)
+        if episode.is_complete():
+            _finalize_episode(episode, episode_logger, optimizer, policy)
+            episode = _new_episode(episode.episode_id + 1, "replay", policy)
 
         auto_reply = parser.match_auto_response(line)
         if auto_reply is not None:
@@ -341,7 +594,8 @@ def run_replay(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger
 
         if parser.is_prompt(line):
             burn = policy.choose_burn(last_state)
-            logger.log_turn("replay", last_state, burn)
+            episode.turns += 1
+            turn_logger.log_turn("replay", episode.episode_id, last_state, burn)
             print(f"[replay] burn={burn}")
 
     sys.stdout.flush()
@@ -401,6 +655,38 @@ def _safe_num(v: Optional[float]) -> str:
     return "" if v is None else str(v)
 
 
+def compute_reward(landing_velocity_fps: float) -> float:
+    # Primary optimization target: lower landing velocity is better.
+    return -float(landing_velocity_fps)
+
+
+def _new_episode(episode_id: int, mode: str, policy: BasePolicy) -> EpisodeSummary:
+    return EpisodeSummary(
+        episode_id=episode_id,
+        mode=mode,
+        start_timestamp=time.time(),
+        policy_params_json=json.dumps(policy.get_params(), sort_keys=True),
+    )
+
+
+def _finalize_episode(
+    episode: EpisodeSummary,
+    episode_logger: EpisodeLogger,
+    optimizer: RandomSearchOptimizer,
+    policy: BasePolicy,
+) -> None:
+    episode.end_timestamp = time.time()
+    episode.policy_params_json = json.dumps(policy.get_params(), sort_keys=True)
+    episode_logger.log_episode(episode)
+    optimizer.maybe_update(policy, episode)
+    print(
+        "[episode] "
+        f"id={episode.episode_id} "
+        f"landing_velocity_fps={episode.landing_velocity_fps} "
+        f"reward={episode.reward}"
+    )
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="CP/M MBASIC Lunar Lander serial agent")
     ap.add_argument("--config", default="config.json", help="Path to JSON config")
@@ -416,17 +702,28 @@ def main() -> None:
     cfg = load_config(Path(args.config))
     parser = Parser(cfg)
     policy = RuleBasedPolicy(cfg)
-    logger = TurnLogger(Path(cfg["logging"]["csv_path"]))
+    turn_logger = TurnLogger(Path(cfg["logging"]["csv_path"]))
+    episode_logger = EpisodeLogger(Path(cfg["logging"]["episode_csv_path"]))
+    optimizer = RandomSearchOptimizer(cfg)
 
     try:
         if args.mode == "live":
-            run_live(cfg, parser, policy, logger)
+            run_live(cfg, parser, policy, turn_logger, episode_logger, optimizer)
         else:
             if not args.replay_file:
                 raise SystemExit("--replay-file is required in replay mode")
-            run_replay(cfg, parser, policy, logger, Path(args.replay_file))
+            run_replay(
+                cfg,
+                parser,
+                policy,
+                turn_logger,
+                episode_logger,
+                optimizer,
+                Path(args.replay_file),
+            )
     finally:
-        logger.close()
+        turn_logger.close()
+        episode_logger.close()
 
 
 if __name__ == "__main__":
