@@ -282,6 +282,33 @@ def run_live(cfg: Dict, parser: Parser, policy: BasePolicy, logger: TurnLogger) 
                     logger.log_turn("live", last_state, burn)
                     print(f"[agent] burn={burn}")
 
+            # Some BASIC prompts (e.g. "?") are emitted without CR/LF.
+            # Check remainder buffer so we can answer immediately.
+            if buf:
+                auto_reply = parser.match_auto_response(buf)
+                if auto_reply is not None:
+                    _send_line(
+                        ser,
+                        auto_reply,
+                        line_ending=line_ending,
+                        encoding=serial_cfg.get("encoding", "ascii"),
+                        tx_char_delay=tx_char_delay,
+                    )
+                    print(f"[agent] auto_reply={auto_reply!r}")
+                    buf = ""
+                elif parser.is_prompt(buf):
+                    burn = policy.choose_burn(last_state)
+                    _send_line(
+                        ser,
+                        str(burn),
+                        line_ending=line_ending,
+                        encoding=serial_cfg.get("encoding", "ascii"),
+                        tx_char_delay=tx_char_delay,
+                    )
+                    logger.log_turn("live", last_state, burn)
+                    print(f"[agent] burn={burn}")
+                    buf = ""
+
     except KeyboardInterrupt:
         print("\n[agent] interrupted, exiting.")
     finally:

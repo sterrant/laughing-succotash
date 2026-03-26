@@ -42,6 +42,7 @@ This is usually serial framing or line-ending mismatch. Verify:
 - 19,200 bps, 7E1 (`SEVENBITS` + `PARITY_EVEN` + `stopbits: 1`)
 - `tx_line_ending` is `\"\\r\\n\"` (CR+LF)
 - If you still see truncated input like `RU`, increase `tx_char_delay_sec` (for example `0.05`).
+- The agent also handles prompts printed without a newline (for example a bare `?`).
 
 ## Live mode
 ```bash
