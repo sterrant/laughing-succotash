@@ -1,11 +1,23 @@
 RUN
                              LUNAR LANDER
 
+
+
+
+
+
+
+
+
+
+
+
                              by Dave Ahl
 Do you want instructionsN
 Beginning landing procedure..........
 
 DIGBY WISHES YOU GOOD LUCK !!!!!!!
+
 
 SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
 
@@ -22,66 +34,307 @@ SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
  5    692.5     65        140     I          *
 ? 10
  6    630       60        130     I      *
-? 10
- 7    572.5     55        120     I  *
-? 10
- 8    520       50        110     I
-                                  *
-? 10
- 9    472.5     45        100     I
-                               *
-? 10
- 10   430       40        90      I
-                            *
-? 10
- 11   392.5     35        80      I
+? 6
+ 7    570.5     59        124     I  *
+? 6
+ 8    512       58        118     I
+                                 *
+? 4
+ 9    453.5     59        114     I
+                             *
+? 5
+ 10   394.5     59        109     I
                          *
-? 10
- 12   360       30        70      I
-                       *
-? 5
- 13   330       30        65      I
+? 6
+ 11   336       58        103     I
                      *
-? 5
- 14   300       30        60      I
+? 6
+ 12   278.5     57        97      I
+                  *
+? 6
+ 13   222       56        91      I
+              *
+? 6
+ 14   166.5     55        85      I
+          *
+? 6
+ 15   112       54        79      I
+      *
+? 10
+ 16   60.5      49        69      I
+   *
+? 20
+ 17   19        34        49      I
+*
+? 20
+***** CONTACT *****
+Touchdown at 17.6528 seconds.
+Landing velocity= 24.2074 feet/sec.
+ 29 units of fuel remaining.
+You blasted a huge crater !!!!!
+Your family will be notified..............by post.
+
+
+
+Another missionY
+Beginning landing procedure..........
+
+DIGBY WISHES YOU GOOD LUCK !!!!!!!
+
+
+SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
+
+ 0    1000      50        150     I                               *
+?
+ 1    947.5     55        150     I                           *
+?
+ 2    890       60        150     I                       *
+?
+ 3    827.5     65        150     I                   *
+?
+ 4    760       70        150     I               *
+?
+ 5    687.5     75        150     I          *
+?
+ 6    610       80        150     I     *
+? 30
+ 7    542.5     55        120     I*
+? 10
+ 8    490       50        110     I
+                                *
+? 10
+ 9    442.5     45        100     I
+                             *
+? 10
+ 10   400       40        90      I
+                          *
+? 10
+ 11   362.5     35        80      I
+                       *
+? 8
+ 12   329       32        72      I
+                     *
+? 8
+ 13   298.5     29        64      I
                    *
 ? 5
- 15   270       30        55      I
+ 14   269.5     29        59      I
                  *
 ? 5
- 16   240       30        50      I
+ 15   240.5     29        54      I
                *
-? 5
- 17   210       30        45      I
+? 8
+ 16   213       26        46      I
              *
-? 5
- 18   180       30        40      I
-           *
-? 5
- 19   150       30        35      I
+? 8
+ 17   188.5     23        38      I
+            *
+? 6
+ 18   166       22        32      I
+          *
+? 6
+ 19   144.5     21        26      I
          *
-? 5
- 20   120       30        30      I
+? 6
+ 20   124       20        20      I
        *
-? 5
- 21   90        30        25      I
+? 6
+ 21   104.5     19        14      I
+      *
+? 6
+ 22   86        18        8       I
      *
-? 10
- 22   62.5      25        15      I
-   *
-? 5
- 23   37.5      25        10      I
-  *
-? 10
+? 6
+ 23   68.5      17        2       I
+    *
+? 2
 **** OUT OF FUEL ****
 
- 24   15        20        0       I
-*
+ 24   50        20        0       I
+  *
+ 25   27.5      25        0       I
+ *
 ***** CONTACT *****
-Touchdown at 24.6904 seconds.
-Landing velocity= 23.4521 feet/sec.
+Touchdown at 26 seconds.
+Landing velocity= 30 feet/sec.
  0 units of fuel remaining.
 You blasted a huge crater !!!!!
 Your family will be notified..............by post.
+
+
+
+Another missionY
+Beginning landing procedure..........
+
+DIGBY WISHES YOU GOOD LUCK !!!!!!!
+
+
+SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
+
+ 0    1000      50        150     I                               *
+? 30
+ 1    962.5     25        120     I                            *
+?
+ 2    935       30        120     I                          *
+?
+ 3    902.5     35        120     I                        *
+?
+ 4    865       40        120     I                      *
+?
+ 5    822.5     45        120     I                   *
+?
+ 6    775       50        120     I                *
+? 30
+ 7    737.5     25        90      I             *
+?
+ 8    710       30        90      I           *
+?
+ 9    677.5     35        90      I         *
+?
+ 10   640       40        90      I       *
+?
+ 11   597.5     45        90      I    *
+?
+ 12   550       50        90      I *
+? 30
+ 13   512.5     25        60      I
+                                 *
+? 5
+ 14   487.5     25        55      I
+                                *
+? 5
+ 15   462.5     25        50      I
+                              *
+? 5
+ 16   437.5     25        45      I
+                            *
+? 5
+ 17   412.5     25        40      I
+                           *
+? 5
+ 18   387.5     25        35      I
+                         *
+? 5
+ 19   362.5     25        30      I
+                       *
+? 5
+ 20   337.5     25        25      I
+                      *
+? 5
+ 21   312.5     25        20      I
+                    *
+? 5
+ 22   287.5     25        15      I
+                  *
+? 5
+ 23   262.5     25        10      I
+                 *
+? 5
+ 24   237.5     25        5       I
+               *
+? 5
+**** OUT OF FUEL ****
+
+ 25   212.5     25        0       I
+             *
+ 26   185       30        0       I
+           *
+ 27   152.5     35        0       I
+         *
+ 28   115       40        0       I
+       *
+ 29   72.5      45        0       I
+    *
+ 30   25        50        0       I
+ *
+***** CONTACT *****
+Touchdown at 30.4881 seconds.
+Landing velocity= 52.4404 feet/sec.
+ 0 units of fuel remaining.
+You totalled an entire mountain !!!!!
+Your family will be notified..............by post.
+
+
+
+Another missionY
+Beginning landing procedure..........
+
+DIGBY WISHES YOU GOOD LUCK !!!!!!!
+
+
+SEC  FEET      SPEED     FUEL     PLOT OF DISTANCE
+
+ 0    1000      50        150     I                               *
+?
+ 1    947.5     55        150     I                           *
+?
+ 2    890       60        150     I                       *
+?
+ 3    827.5     65        150     I                   *
+?
+ 4    760       70        150     I               *
+? 10
+ 5    692.5     65        140     I          *
+? 6
+ 6    628       64        134     I      *
+? 16
+ 7    569.5     53        118     I  *
+? 2
+ 8    515       56        116     I
+                                 *
+? 2
+ 9    457.5     59        114     I
+                              *
+? 2
+ 10   397       62        112     I
+                         *
+? 2
+ 11   333.5     65        110     I
+                     *
+? 20
+ 12   276       50        90      I
+                 *
+? 10
+ 13   228.5     45        80      I
+              *
+? 10
+ 14   186       40        70      I
+           *
+? 10
+ 15   148.5     35        60      I
+         *
+? 10
+ 16   116       30        50      I
+       *
+? 10
+ 17   88.5      25        40      I
+     *
+? 10
+ 18   66        20        30      I
+   *
+? 10
+ 19   48.5      15        20      I
+  *
+? 8
+ 20   35        12        12      I
+ *
+? 8
+ 21   24.5      9         4       I
+ *
+? 4
+**** OUT OF FUEL ****
+
+ 22   15        10        0       I
+*
+ 23   2.5       15        0       I
+*
+***** CONTACT *****
+Touchdown at 23.1623 seconds.
+Landing velocity= 15.8114 feet/sec.
+ 0 units of fuel remaining.
+You blasted a huge crater !!!!!
+Your family will be notified..............by post.
+
+
 
 Another missionY
