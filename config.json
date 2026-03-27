@@ -1,6 +1,6 @@
 {
   "serial": {
-    "port": "COM4",
+    "port": "/dev/ttyUSB0",
     "baudrate": 19200,
     "bytesize": "SEVENBITS",
     "parity": "PARITY_EVEN",
@@ -28,8 +28,11 @@
     "fuel_remaining_pattern": "(?P<fuel_remaining_units>[-+]?\\d+(?:\\.\\d+)?)\\s*units of fuel remaining\\."
   },
   "policy": {
+    "type": "rule",
     "min_burn": 0,
     "max_burn": 30,
+    "neural_model_path": "models/policy.pt",
+    "neural_norm_path": "models/policy_norm.json",
     "parameters": {
       "target_v_high": 70,
       "target_v_mid_high": 45,

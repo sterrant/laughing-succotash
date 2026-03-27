@@ -687,6 +687,15 @@ def _finalize_episode(
     )
 
 
+def build_policy(cfg: Dict) -> BasePolicy:
+    policy_type = str(cfg.get("policy", {}).get("type", "rule")).lower()
+    if policy_type == "neural":
+        from neural_policy import NeuralPolicy
+
+        return NeuralPolicy(cfg)  # type: ignore[return-value]
+    return RuleBasedPolicy(cfg)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="CP/M MBASIC Lunar Lander serial agent")
     ap.add_argument("--config", default="config.json", help="Path to JSON config")
@@ -701,7 +710,7 @@ def main() -> None:
 
     cfg = load_config(Path(args.config))
     parser = Parser(cfg)
-    policy = RuleBasedPolicy(cfg)
+    policy = build_policy(cfg)
     turn_logger = TurnLogger(Path(cfg["logging"]["csv_path"]))
     episode_logger = EpisodeLogger(Path(cfg["logging"]["episode_csv_path"]))
     optimizer = RandomSearchOptimizer(cfg)

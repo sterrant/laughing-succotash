@@ -61,6 +61,29 @@ python3 cpm_lander_agent.py --mode replay --config config.json --replay-file ses
 
 Replay mode echoes the file, runs parser + policy, and appends decisions to CSV.
 
+## Train a tiny neural policy (PyTorch)
+After collecting turn data (`logs/turns.csv`), train a small MLP:
+
+```bash
+python3 train_policy.py --turn-csv logs/turns.csv --out-model models/policy.pt --out-norm models/policy_norm.json
+```
+
+This trains a simple behavior-cloning model from `(altitude, velocity, fuel, sec) -> burn`.
+
+To switch the agent from rule policy to neural policy, change one config field:
+
+```json
+"policy": {
+  "type": "neural"
+}
+```
+
+The model/norm paths are configured via:
+- `policy.neural_model_path`
+- `policy.neural_norm_path`
+
+Set `"policy.type": "rule"` to switch back.
+
 ## Adapting to other BASIC listings
 - **Prompt changes:** update `parser.prompt_patterns` regex list.
 - **State line layout changes:** update `parser.state_pattern` named groups (`sec`, `altitude`, `velocity`, `fuel`).
