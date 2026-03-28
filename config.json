@@ -33,6 +33,12 @@
     "max_burn": 30,
     "neural_model_path": "models/policy.pt",
     "neural_norm_path": "models/policy_norm.json",
+    "lookahead": {
+      "burn_candidates_min": 0,
+      "burn_candidates_max": 15,
+      "horizon_steps": 3,
+      "fuel_penalty_weight": 0.05
+    },
     "parameters": {
       "target_v_high": 70,
       "target_v_mid_high": 45,

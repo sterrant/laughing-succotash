@@ -83,6 +83,13 @@ The model/norm paths are configured via:
 - `policy.neural_norm_path`
 
 Set `"policy.type": "rule"` to switch back.
+Set `"policy.type": "lookahead_rule"` to use the short-horizon rule policy.
+
+Lookahead tuning knobs:
+- `policy.lookahead.burn_candidates_min`
+- `policy.lookahead.burn_candidates_max`
+- `policy.lookahead.horizon_steps`
+- `policy.lookahead.fuel_penalty_weight`
 
 ## Analyze optimization runs from episodes.csv
 Use the analyzer to summarize velocity stats, inspect best runs, and detect optimizer boundary clipping:

@@ -272,6 +272,72 @@ class RuleBasedPolicy(BasePolicy):
         burn = min(burn, int(fuel))
         return burn
 
+    def _baseline_burn(self, altitude: float, velocity: float, fuel: float) -> int:
+        if fuel <= 0:
+            return 0
+        s = GameState(sec=0.0, altitude=altitude, velocity=velocity, fuel=fuel)
+        return RuleBasedPolicy.choose_burn(self, s)
+
+
+class LookaheadRulePolicy(RuleBasedPolicy):
+    """Rule policy with short-horizon candidate burn search."""
+
+    def __init__(self, cfg: Dict):
+        super().__init__(cfg)
+        la = cfg["policy"].get("lookahead", {})
+        self.burn_candidates_min = int(la.get("burn_candidates_min", 0))
+        self.burn_candidates_max = int(la.get("burn_candidates_max", 15))
+        self.horizon_steps = int(la.get("horizon_steps", 3))
+        self.fuel_penalty_weight = float(la.get("fuel_penalty_weight", 0.05))
+
+    def choose_burn(self, state: Optional[GameState]) -> int:
+        if state is None:
+            return 0
+        alt = state.altitude if state.altitude is not None else 9999.0
+        vel = state.velocity if state.velocity is not None else 0.0
+        fuel = state.fuel if state.fuel is not None else 0.0
+        if fuel <= 0:
+            return 0
+
+        lo = max(self.min_burn, self.burn_candidates_min)
+        hi = min(self.max_burn, self.burn_candidates_max, int(fuel))
+        candidates = range(lo, hi + 1)
+
+        best_burn = 0
+        best_score = float("inf")
+        for burn0 in candidates:
+            score = self._score_candidate(alt, vel, fuel, int(burn0))
+            if score < best_score:
+                best_score = score
+                best_burn = int(burn0)
+        return best_burn
+
+    def _score_candidate(self, alt: float, vel: float, fuel: float, burn0: int) -> float:
+        a, v, f = alt, vel, fuel
+        burn = int(min(max(0, burn0), f))
+        touchdown_v = None
+
+        for step in range(max(1, self.horizon_steps)):
+            if step > 0:
+                burn = self._baseline_burn(a, v, f)
+            a_next, v_next, f_next, td_v = _simulate_step(a, v, f, burn)
+            if td_v is not None:
+                touchdown_v = td_v
+                a, v, f = 0.0, td_v, f_next
+                break
+            a, v, f = a_next, v_next, f_next
+
+        if touchdown_v is None:
+            # Not yet at ground in horizon: estimate urgency from residual state.
+            # Lower velocity and lower altitude are better.
+            touchdown_like = max(0.0, v) + 0.02 * max(0.0, a)
+        else:
+            touchdown_like = touchdown_v
+
+        # Small penalty to avoid burning everything too early.
+        fuel_penalty = self.fuel_penalty_weight * max(0.0, -f)
+        return touchdown_like + fuel_penalty
+
 
 class RandomSearchOptimizer:
     """Simple optimizer: keep best params by reward, sample around best."""
@@ -622,6 +688,49 @@ def _decode_line_ending(s: str) -> str:
     return s.encode("utf-8").decode("unicode_escape")
 
 
+def _simulate_step(altitude: float, velocity: float, fuel: float, burn: int):
+    """One-second MBASIC-like update.
+
+    Empirical from classic listing output:
+    - acceleration term is roughly (5 - burn)
+    - altitude update uses v + 0.5*a over 1 second
+    """
+    burn = int(max(0, min(int(fuel), burn)))
+    a = 5.0 - burn
+    alt_next = altitude - (velocity + 0.5 * a)
+    vel_next = velocity + a
+    fuel_next = max(0.0, fuel - burn)
+
+    touchdown_velocity = None
+    if alt_next <= 0.0:
+        touchdown_velocity = _touchdown_velocity(altitude, velocity, a)
+    return alt_next, vel_next, fuel_next, touchdown_velocity
+
+
+def _touchdown_velocity(altitude: float, velocity: float, accel: float) -> float:
+    """Velocity magnitude at touchdown within a one-second step."""
+    if altitude <= 0:
+        return abs(velocity)
+
+    # Solve altitude - velocity*t - 0.5*accel*t^2 = 0 for t in [0, 1].
+    aa = 0.5 * accel
+    bb = velocity
+    cc = -altitude
+
+    if abs(aa) < 1e-9:
+        t = altitude / max(1e-9, velocity)
+    else:
+        disc = bb * bb - 4 * aa * cc
+        disc = max(0.0, disc)
+        sqrt_disc = disc**0.5
+        t1 = (-bb + sqrt_disc) / (2 * aa)
+        t2 = (-bb - sqrt_disc) / (2 * aa)
+        candidates = [t for t in (t1, t2) if 0.0 <= t <= 1.0]
+        t = candidates[0] if candidates else 1.0
+    v_touch = velocity + accel * t
+    return abs(v_touch)
+
+
 def _send_line(
     ser,
     text: str,
@@ -693,6 +802,8 @@ def build_policy(cfg: Dict) -> BasePolicy:
         from neural_policy import NeuralPolicy
 
         return NeuralPolicy(cfg)  # type: ignore[return-value]
+    if policy_type == "lookahead_rule":
+        return LookaheadRulePolicy(cfg)
     return RuleBasedPolicy(cfg)
 
 
