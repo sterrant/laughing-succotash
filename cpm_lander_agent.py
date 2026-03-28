@@ -314,8 +314,12 @@ class LookaheadRulePolicy(RuleBasedPolicy):
 
     def _score_candidate(self, alt: float, vel: float, fuel: float, burn0: int) -> float:
         a, v, f = alt, vel, fuel
+        initial_fuel = fuel
         burn = int(min(max(0, burn0), f))
         touchdown_v = None
+        req_burn = 5.0 + (max(0.0, vel) ** 2) / (2.0 * max(1.0, alt))
+        req_burn = max(self.min_burn, min(self.max_burn, req_burn))
+        initial_burn_penalty = 1.8 * abs(burn0 - req_burn)
 
         for step in range(max(1, self.horizon_steps)):
             if step > 0:
@@ -329,14 +333,20 @@ class LookaheadRulePolicy(RuleBasedPolicy):
 
         if touchdown_v is None:
             # Not yet at ground in horizon: estimate urgency from residual state.
-            # Lower velocity and lower altitude are better.
-            touchdown_like = max(0.0, v) + 0.02 * max(0.0, a)
+            # Keep descending under control, avoid ascent/fuel dump behavior.
+            target = self.params.get("target_v_final", 10.0)
+            vel_term = abs(v - target)
+            alt_term = 0.03 * max(0.0, a)
+            ascent_penalty = 3.0 * max(0.0, -v)
+            fuel_used_penalty = 0.06 * max(0.0, initial_fuel - f)
+            dry_penalty = 60.0 if (f <= 0 and a > 40) else 0.0
+            touchdown_like = vel_term + alt_term + ascent_penalty + fuel_used_penalty + dry_penalty
         else:
             touchdown_like = touchdown_v
 
         # Small penalty to avoid burning everything too early.
-        fuel_penalty = self.fuel_penalty_weight * max(0.0, -f)
-        return touchdown_like + fuel_penalty
+        fuel_penalty = self.fuel_penalty_weight * max(0.0, initial_fuel - f)
+        return touchdown_like + fuel_penalty + initial_burn_penalty
 
 
 class RandomSearchOptimizer:

@@ -26,6 +26,12 @@ class LookaheadPolicyTests(unittest.TestCase):
         self.assertGreaterEqual(burn, 1)
         self.assertLessEqual(burn, 15)
 
+    def test_lookahead_does_not_max_burn_at_initial_state(self):
+        p = LookaheadRulePolicy(self.cfg)
+        initial = GameState(sec=0, altitude=1000, velocity=50, fuel=150)
+        burn = p.choose_burn(initial)
+        self.assertLessEqual(burn, 10)
+
 
 if __name__ == '__main__':
     unittest.main()
