@@ -84,6 +84,13 @@ The model/norm paths are configured via:
 
 Set `"policy.type": "rule"` to switch back.
 
+## Analyze optimization runs from episodes.csv
+Use the analyzer to summarize velocity stats, inspect best runs, and detect optimizer boundary clipping:
+
+```bash
+python3 analyze_episodes.py --episodes-csv logs/episodes.csv --config config.json --top-n 20 --recent 200
+```
+
 ## Adapting to other BASIC listings
 - **Prompt changes:** update `parser.prompt_patterns` regex list.
 - **State line layout changes:** update `parser.state_pattern` named groups (`sec`, `altitude`, `velocity`, `fuel`).
