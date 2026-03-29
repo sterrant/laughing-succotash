@@ -36,6 +36,9 @@
     "lookahead": {
       "burn_candidates_min": 0,
       "burn_candidates_max": 15,
+      "burn_step": 1.0,
+      "terminal_burn_step": 0.5,
+      "terminal_altitude": 20.0,
       "horizon_steps": 3,
       "fuel_penalty_weight": 0.05
     },

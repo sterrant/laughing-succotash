@@ -195,7 +195,7 @@ class OutcomeExtractor:
 class BasePolicy:
     """Policy interface so a learned policy can be plugged in later."""
 
-    def choose_burn(self, state: Optional[GameState]) -> int:
+    def choose_burn(self, state: Optional[GameState]) -> float:
         raise NotImplementedError
 
     def get_params(self) -> Dict:
@@ -233,7 +233,7 @@ class RuleBasedPolicy(BasePolicy):
             if k in params:
                 self.params[k] = float(params[k])
 
-    def choose_burn(self, state: Optional[GameState]) -> int:
+    def choose_burn(self, state: Optional[GameState]) -> float:
         if state is None:
             return 0
 
@@ -268,11 +268,11 @@ class RuleBasedPolicy(BasePolicy):
         else:
             burn = self.params["burn_max"]
 
-        burn = max(self.min_burn, min(self.max_burn, int(round(burn))))
-        burn = min(burn, int(fuel))
+        burn = max(float(self.min_burn), min(float(self.max_burn), float(burn)))
+        burn = min(burn, float(fuel))
         return burn
 
-    def _baseline_burn(self, altitude: float, velocity: float, fuel: float) -> int:
+    def _baseline_burn(self, altitude: float, velocity: float, fuel: float) -> float:
         if fuel <= 0:
             return 0
         s = GameState(sec=0.0, altitude=altitude, velocity=velocity, fuel=fuel)
@@ -289,8 +289,11 @@ class LookaheadRulePolicy(RuleBasedPolicy):
         self.burn_candidates_max = int(la.get("burn_candidates_max", 15))
         self.horizon_steps = int(la.get("horizon_steps", 3))
         self.fuel_penalty_weight = float(la.get("fuel_penalty_weight", 0.05))
+        self.burn_step = float(la.get("burn_step", 1.0))
+        self.terminal_burn_step = float(la.get("terminal_burn_step", 0.5))
+        self.terminal_altitude = float(la.get("terminal_altitude", 20.0))
 
-    def choose_burn(self, state: Optional[GameState]) -> int:
+    def choose_burn(self, state: Optional[GameState]) -> float:
         if state is None:
             return 0
         alt = state.altitude if state.altitude is not None else 9999.0
@@ -299,23 +302,24 @@ class LookaheadRulePolicy(RuleBasedPolicy):
         if fuel <= 0:
             return 0
 
-        lo = max(self.min_burn, self.burn_candidates_min)
-        hi = min(self.max_burn, self.burn_candidates_max, int(fuel))
-        candidates = range(lo, hi + 1)
+        lo = max(float(self.min_burn), float(self.burn_candidates_min))
+        hi = min(float(self.max_burn), float(self.burn_candidates_max), float(fuel))
+        step = self.terminal_burn_step if alt <= self.terminal_altitude else self.burn_step
+        candidates = _frange(lo, hi, step)
 
-        best_burn = 0
+        best_burn = 0.0
         best_score = float("inf")
         for burn0 in candidates:
-            score = self._score_candidate(alt, vel, fuel, int(burn0))
+            score = self._score_candidate(alt, vel, fuel, float(burn0))
             if score < best_score:
                 best_score = score
-                best_burn = int(burn0)
+                best_burn = float(burn0)
         return best_burn
 
-    def _score_candidate(self, alt: float, vel: float, fuel: float, burn0: int) -> float:
+    def _score_candidate(self, alt: float, vel: float, fuel: float, burn0: float) -> float:
         a, v, f = alt, vel, fuel
         initial_fuel = fuel
-        burn = int(min(max(0, burn0), f))
+        burn = float(min(max(0.0, burn0), f))
         touchdown_v = None
         req_burn = 5.0 + (max(0.0, vel) ** 2) / (2.0 * max(1.0, alt))
         req_burn = max(self.min_burn, min(self.max_burn, req_burn))
@@ -323,7 +327,7 @@ class LookaheadRulePolicy(RuleBasedPolicy):
 
         for step in range(max(1, self.horizon_steps)):
             if step > 0:
-                burn = self._baseline_burn(a, v, f)
+                    burn = self._baseline_burn(a, v, f)
             a_next, v_next, f_next, td_v = _simulate_step(a, v, f, burn)
             if td_v is not None:
                 touchdown_v = td_v
@@ -346,7 +350,8 @@ class LookaheadRulePolicy(RuleBasedPolicy):
 
         # Small penalty to avoid burning everything too early.
         fuel_penalty = self.fuel_penalty_weight * max(0.0, initial_fuel - f)
-        return touchdown_like + fuel_penalty + initial_burn_penalty
+        best = touchdown_like + fuel_penalty + initial_burn_penalty
+        return float(best)
 
 
 class RandomSearchOptimizer:
@@ -409,7 +414,7 @@ class TurnLogger:
             self.writer.writeheader()
             self.fp.flush()
 
-    def log_turn(self, mode: str, episode_id: int, state: Optional[GameState], burn: int):
+    def log_turn(self, mode: str, episode_id: int, state: Optional[GameState], burn: float):
         self.writer.writerow(
             {
                 "timestamp": time.time(),
@@ -419,7 +424,7 @@ class TurnLogger:
                 "altitude": _safe_num(state.altitude if state else None),
                 "velocity": _safe_num(state.velocity if state else None),
                 "fuel": _safe_num(state.fuel if state else None),
-                "burn": burn,
+                "burn": _safe_num(burn),
                 "raw_line": state.raw_line if state else "",
             }
         )
@@ -577,7 +582,7 @@ def run_live(
                     burn = policy.choose_burn(last_state)
                     _send_line(
                         ser,
-                        str(burn),
+                        _format_burn(burn),
                         line_ending=line_ending,
                         encoding=serial_cfg.get("encoding", "ascii"),
                         tx_char_delay=tx_char_delay,
@@ -604,7 +609,7 @@ def run_live(
                     burn = policy.choose_burn(last_state)
                     _send_line(
                         ser,
-                        str(burn),
+                        _format_burn(burn),
                         line_ending=line_ending,
                         encoding=serial_cfg.get("encoding", "ascii"),
                         tx_char_delay=tx_char_delay,
@@ -672,7 +677,7 @@ def run_replay(
             burn = policy.choose_burn(last_state)
             episode.turns += 1
             turn_logger.log_turn("replay", episode.episode_id, last_state, burn)
-            print(f"[replay] burn={burn}")
+            print(f"[replay] burn={_format_burn(burn)}")
 
     sys.stdout.flush()
     print("[replay] done")
@@ -698,14 +703,26 @@ def _decode_line_ending(s: str) -> str:
     return s.encode("utf-8").decode("unicode_escape")
 
 
-def _simulate_step(altitude: float, velocity: float, fuel: float, burn: int):
+def _frange(lo: float, hi: float, step: float) -> List[float]:
+    step = max(0.01, float(step))
+    out: List[float] = []
+    x = lo
+    while x <= hi + 1e-9:
+        out.append(round(x, 4))
+        x += step
+    if not out:
+        out = [round(lo, 4)]
+    return out
+
+
+def _simulate_step(altitude: float, velocity: float, fuel: float, burn: float):
     """One-second MBASIC-like update.
 
     Empirical from classic listing output:
     - acceleration term is roughly (5 - burn)
     - altitude update uses v + 0.5*a over 1 second
     """
-    burn = int(max(0, min(int(fuel), burn)))
+    burn = float(max(0.0, min(float(fuel), burn)))
     a = 5.0 - burn
     alt_next = altitude - (velocity + 0.5 * a)
     vel_next = velocity + a
@@ -759,6 +776,13 @@ def _send_line(
     for ch in payload:
         ser.write(ch.encode(encoding, errors="replace"))
         time.sleep(tx_char_delay)
+
+
+def _format_burn(burn: float) -> str:
+    # Keep integers clean, but preserve fractional precision when needed.
+    if abs(burn - round(burn)) < 1e-9:
+        return str(int(round(burn)))
+    return f"{burn:.4f}".rstrip("0").rstrip(".")
 
 
 def _to_float(v: Optional[str]) -> Optional[float]:

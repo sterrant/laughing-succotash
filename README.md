@@ -88,8 +88,13 @@ Set `"policy.type": "lookahead_rule"` to use the short-horizon rule policy.
 Lookahead tuning knobs:
 - `policy.lookahead.burn_candidates_min`
 - `policy.lookahead.burn_candidates_max`
+- `policy.lookahead.burn_step`
+- `policy.lookahead.terminal_burn_step`
+- `policy.lookahead.terminal_altitude`
 - `policy.lookahead.horizon_steps`
 - `policy.lookahead.fuel_penalty_weight`
+
+Fractional burns are supported (for example `4.5`), and terminal-phase search can use a finer step size.
 
 ## Analyze optimization runs from episodes.csv
 Use the analyzer to summarize velocity stats, inspect best runs, and detect optimizer boundary clipping:
