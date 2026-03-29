@@ -1,0 +1,2 @@
+pyserial>=3.5
+torch>=2.2
