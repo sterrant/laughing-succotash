@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from cpm_lander_agent import GameState, LookaheadRulePolicy, _format_burn, _simulate_step
+from cpm_lander_agent import GameState, LookaheadRulePolicy, _format_burn, _quantize_burn, _simulate_step
 
 
 class LookaheadPolicyTests(unittest.TestCase):
@@ -35,6 +35,7 @@ class LookaheadPolicyTests(unittest.TestCase):
     def test_format_burn_keeps_fractional_precision(self):
         self.assertEqual(_format_burn(5.0), "5")
         self.assertEqual(_format_burn(4.5), "4.5")
+        self.assertEqual(_format_burn(_quantize_burn(4.56)), "4.6")
 
 
 if __name__ == '__main__':

@@ -354,6 +354,64 @@ class LookaheadRulePolicy(RuleBasedPolicy):
         return float(best)
 
 
+class PhysicsPolicy(BasePolicy):
+    """Physics-based controller using stopping-distance burn estimates."""
+
+    def __init__(self, cfg: Dict):
+        policy_cfg = cfg["policy"]
+        self.min_burn = float(policy_cfg.get("min_burn", 0))
+        self.max_burn = float(policy_cfg.get("max_burn", 30))
+        phys = policy_cfg.get("physics", {})
+        self.target_v_terminal = float(phys.get("target_v_terminal", 3.0))
+        self.blend_altitude = float(phys.get("blend_altitude", 80.0))
+        self.min_altitude_guard = float(phys.get("min_altitude_guard", 1.0))
+        self.kp_velocity = float(phys.get("kp_velocity", 0.15))
+
+    def choose_burn(self, state: Optional[GameState]) -> float:
+        if state is None:
+            return 0.0
+        alt = state.altitude if state.altitude is not None else 9999.0
+        vel = state.velocity if state.velocity is not None else 0.0
+        fuel = state.fuel if state.fuel is not None else 0.0
+        if fuel <= 0:
+            return 0.0
+
+        h = max(self.min_altitude_guard, alt)
+        v = max(0.0, vel)
+
+        # Burn to cancel gravity + required decel to stop by touchdown.
+        u_stop = 5.0 + (v * v) / (2.0 * h)
+
+        # Near ground, blend with a terminal-speed-tracking burn.
+        if alt <= self.blend_altitude:
+            alpha = 1.0 - max(0.0, alt) / max(1e-6, self.blend_altitude)
+            u_term = 5.0 + max(0.0, v - self.target_v_terminal)
+            u = (1.0 - alpha) * u_stop + alpha * u_term
+        else:
+            u = u_stop
+
+        # Small proportional velocity correction.
+        u += self.kp_velocity * max(0.0, v - self.target_v_terminal)
+
+        u = max(self.min_burn, min(self.max_burn, u))
+        u = min(u, float(fuel))
+        return float(u)
+
+    def get_params(self) -> Dict:
+        return {
+            "policy_type": "physics",
+            "target_v_terminal": self.target_v_terminal,
+            "blend_altitude": self.blend_altitude,
+            "min_altitude_guard": self.min_altitude_guard,
+            "kp_velocity": self.kp_velocity,
+        }
+
+    def set_params(self, params: Dict) -> None:
+        for k in ("target_v_terminal", "blend_altitude", "min_altitude_guard", "kp_velocity"):
+            if k in params:
+                setattr(self, k, float(params[k]))
+
+
 class RandomSearchOptimizer:
     """Simple optimizer: keep best params by reward, sample around best."""
 
@@ -579,7 +637,7 @@ def run_live(
                     continue
 
                 if parser.is_prompt(line):
-                    burn = policy.choose_burn(last_state)
+                    burn = _quantize_burn(policy.choose_burn(last_state))
                     _send_line(
                         ser,
                         _format_burn(burn),
@@ -606,7 +664,7 @@ def run_live(
                     print(f"[agent] auto_reply={auto_reply!r}")
                     buf = ""
                 elif parser.is_prompt(buf):
-                    burn = policy.choose_burn(last_state)
+                    burn = _quantize_burn(policy.choose_burn(last_state))
                     _send_line(
                         ser,
                         _format_burn(burn),
@@ -674,7 +732,7 @@ def run_replay(
             continue
 
         if parser.is_prompt(line):
-            burn = policy.choose_burn(last_state)
+            burn = _quantize_burn(policy.choose_burn(last_state))
             episode.turns += 1
             turn_logger.log_turn("replay", episode.episode_id, last_state, burn)
             print(f"[replay] burn={_format_burn(burn)}")
@@ -782,7 +840,11 @@ def _format_burn(burn: float) -> str:
     # Keep integers clean, but preserve fractional precision when needed.
     if abs(burn - round(burn)) < 1e-9:
         return str(int(round(burn)))
-    return f"{burn:.4f}".rstrip("0").rstrip(".")
+    return f"{burn:.1f}".rstrip("0").rstrip(".")
+
+
+def _quantize_burn(burn: float) -> float:
+    return round(float(burn), 1)
 
 
 def _to_float(v: Optional[str]) -> Optional[float]:
@@ -838,6 +900,8 @@ def build_policy(cfg: Dict) -> BasePolicy:
         return NeuralPolicy(cfg)  # type: ignore[return-value]
     if policy_type == "lookahead_rule":
         return LookaheadRulePolicy(cfg)
+    if policy_type == "physics":
+        return PhysicsPolicy(cfg)
     return RuleBasedPolicy(cfg)
 
 
