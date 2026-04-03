@@ -84,6 +84,7 @@ The model/norm paths are configured via:
 
 Set `"policy.type": "rule"` to switch back.
 Set `"policy.type": "lookahead_rule"` to use the short-horizon rule policy.
+Set `"policy.type": "physics"` to use the stopping-distance physics controller.
 
 Lookahead tuning knobs:
 - `policy.lookahead.burn_candidates_min`
@@ -96,6 +97,12 @@ Lookahead tuning knobs:
 
 Fractional burns are supported (for example `4.5`), and terminal-phase search can use a finer step size.
 Burn commands sent to MBASIC are quantized to one decimal place.
+
+Physics policy knobs:
+- `policy.physics.target_v_terminal`
+- `policy.physics.blend_altitude`
+- `policy.physics.min_altitude_guard`
+- `policy.physics.kp_velocity`
 
 ## Analyze optimization runs from episodes.csv
 Use the analyzer to summarize velocity stats, inspect best runs, and detect optimizer boundary clipping:

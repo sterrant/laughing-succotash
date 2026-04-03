@@ -42,6 +42,12 @@
       "horizon_steps": 3,
       "fuel_penalty_weight": 0.05
     },
+    "physics": {
+      "target_v_terminal": 3.0,
+      "blend_altitude": 80.0,
+      "min_altitude_guard": 1.0,
+      "kp_velocity": 0.15
+    },
     "parameters": {
       "target_v_high": 70,
       "target_v_mid_high": 45,
