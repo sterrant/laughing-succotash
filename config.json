@@ -46,7 +46,8 @@
       "target_v_terminal": 3.0,
       "blend_altitude": 80.0,
       "min_altitude_guard": 1.0,
-      "kp_velocity": 0.15
+      "kp_velocity": 0.15,
+      "initial_burn_delay_turns": 0
     },
     "parameters": {
       "target_v_high": 70,

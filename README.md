@@ -103,6 +103,7 @@ Physics policy knobs:
 - `policy.physics.blend_altitude`
 - `policy.physics.min_altitude_guard`
 - `policy.physics.kp_velocity`
+- `policy.physics.initial_burn_delay_turns` (hold burn at `0` for the first N turns)
 
 ## Analyze optimization runs from episodes.csv
 Use the analyzer to summarize velocity stats, inspect best runs, and detect optimizer boundary clipping:

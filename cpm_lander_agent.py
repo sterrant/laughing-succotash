@@ -366,6 +366,7 @@ class PhysicsPolicy(BasePolicy):
         self.blend_altitude = float(phys.get("blend_altitude", 80.0))
         self.min_altitude_guard = float(phys.get("min_altitude_guard", 1.0))
         self.kp_velocity = float(phys.get("kp_velocity", 0.15))
+        self.initial_burn_delay_turns = int(phys.get("initial_burn_delay_turns", 0))
 
     def choose_burn(self, state: Optional[GameState]) -> float:
         if state is None:
@@ -374,6 +375,9 @@ class PhysicsPolicy(BasePolicy):
         vel = state.velocity if state.velocity is not None else 0.0
         fuel = state.fuel if state.fuel is not None else 0.0
         if fuel <= 0:
+            return 0.0
+        sec = state.sec if state.sec is not None else 0
+        if sec < self.initial_burn_delay_turns:
             return 0.0
 
         h = max(self.min_altitude_guard, alt)
@@ -404,12 +408,22 @@ class PhysicsPolicy(BasePolicy):
             "blend_altitude": self.blend_altitude,
             "min_altitude_guard": self.min_altitude_guard,
             "kp_velocity": self.kp_velocity,
+            "initial_burn_delay_turns": self.initial_burn_delay_turns,
         }
 
     def set_params(self, params: Dict) -> None:
-        for k in ("target_v_terminal", "blend_altitude", "min_altitude_guard", "kp_velocity"):
+        for k in (
+            "target_v_terminal",
+            "blend_altitude",
+            "min_altitude_guard",
+            "kp_velocity",
+            "initial_burn_delay_turns",
+        ):
             if k in params:
-                setattr(self, k, float(params[k]))
+                if k == "initial_burn_delay_turns":
+                    setattr(self, k, max(0, int(params[k])))
+                else:
+                    setattr(self, k, float(params[k]))
 
 
 class RandomSearchOptimizer:
