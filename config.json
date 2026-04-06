@@ -28,7 +28,7 @@
     "fuel_remaining_pattern": "(?P<fuel_remaining_units>[-+]?\\d+(?:\\.\\d+)?)\\s*units of fuel remaining\\."
   },
   "policy": {
-    "type": "rule",
+    "type": "physics",
     "min_burn": 0,
     "max_burn": 30,
     "neural_model_path": "models/policy.pt",
@@ -78,32 +78,28 @@
     "episode_csv_path": "logs/episodes.csv"
   },
   "optimizer": {
-    "enabled": false,
-    "sigma": 2.0,
+    "enabled": true,
+    "sigma": 1.0,
     "param_ranges": {
-      "target_v_mid": {
-        "min": 20,
-        "max": 45
+      "target_v_terminal": {
+        "min": 2.0,
+        "max": 8.0
       },
-      "target_v_low": {
-        "min": 10,
-        "max": 30
+      "blend_altitude": {
+        "min": 40.0,
+        "max": 200.0
       },
-      "target_v_final": {
-        "min": 5,
-        "max": 20
+      "min_altitude_guard": {
+        "min": 0.5,
+        "max": 5.0
       },
-      "burn_medium": {
-        "min": 3,
+      "kp_velocity": {
+        "min": 0.05,
+        "max": 0.4
+      },
+      "initial_burn_delay_turns": {
+        "min": 0,
         "max": 12
-      },
-      "burn_large": {
-        "min": 6,
-        "max": 20
-      },
-      "burn_max": {
-        "min": 8,
-        "max": 30
       }
     }
   }

@@ -382,6 +382,7 @@ class PhysicsPolicy(BasePolicy):
 
         h = max(self.min_altitude_guard, alt)
         v = max(0.0, vel)
+        v_err = v - self.target_v_terminal
 
         # Burn to cancel gravity + required decel to stop by touchdown.
         u_stop = 5.0 + (v * v) / (2.0 * h)
@@ -389,13 +390,15 @@ class PhysicsPolicy(BasePolicy):
         # Near ground, blend with a terminal-speed-tracking burn.
         if alt <= self.blend_altitude:
             alpha = 1.0 - max(0.0, alt) / max(1e-6, self.blend_altitude)
-            u_term = 5.0 + max(0.0, v - self.target_v_terminal)
+            # Permit sub-hover burn when already slower than terminal target.
+            u_term = 5.0 + v_err
             u = (1.0 - alpha) * u_stop + alpha * u_term
         else:
             u = u_stop
 
-        # Small proportional velocity correction.
-        u += self.kp_velocity * max(0.0, v - self.target_v_terminal)
+        # Small proportional velocity correction (signed).
+        # This can reduce thrust below hover in over-braked regimes and save fuel.
+        u += self.kp_velocity * v_err
 
         u = max(self.min_burn, min(self.max_burn, u))
         u = min(u, float(fuel))

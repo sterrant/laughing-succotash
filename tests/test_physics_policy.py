@@ -26,6 +26,11 @@ class PhysicsPolicyTests(unittest.TestCase):
         s = GameState(sec=10, altitude=10, velocity=50, fuel=4.5)
         self.assertLessEqual(p.choose_burn(s), 4.5)
 
+    def test_low_speed_can_command_sub_hover_burn(self):
+        p = PhysicsPolicy(self.cfg)
+        s = GameState(sec=10, altitude=1000, velocity=0, fuel=150)
+        self.assertLess(p.choose_burn(s), 5.0)
+
     def test_initial_burn_delay_turns_holds_burn_at_zero(self):
         self.cfg['policy']['physics']['initial_burn_delay_turns'] = 7
         p = PhysicsPolicy(self.cfg)
