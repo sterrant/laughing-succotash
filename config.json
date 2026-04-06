@@ -1,0 +1,106 @@
+{
+  "serial": {
+    "port": "COM4",
+    "baudrate": 19200,
+    "bytesize": "EIGHTBITS",
+    "parity": "PARITY_NONE",
+    "stopbits": 1,
+    "timeout": 0.1,
+    "encoding": "ascii",
+    "tx_line_ending": "\r\n",
+    "tx_char_delay_sec": 0.02
+  },
+  "parser": {
+    "prompt_patterns": [
+      "^\\?\\s*$",
+      "^\\?\\s*[-+]?\\d*(?:\\.\\d+)?\\s*$"
+    ],
+    "state_pattern": "^\\s*(?P<sec>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<altitude>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<velocity>[-+]?\\d+(?:\\.\\d+)?)\\s+(?P<fuel>[-+]?\\d+(?:\\.\\d+)?)(?:\\s+.*)?$",
+    "ignore_patterns": [
+      "PLOT OF DISTANCE",
+      "^\\s*I\\s*\\*?\\s*$",
+      "^\\s*\\*\\s*$"
+    ],
+    "extra_patterns": {},
+    "contact_pattern": "^\\*{5}\\s*CONTACT\\s*\\*{5}\\s*$",
+    "touchdown_pattern": "Touchdown at\\s*(?P<touchdown_time_seconds>[-+]?\\d+(?:\\.\\d+)?)\\s*seconds\\.",
+    "landing_velocity_pattern": "Landing velocity=\\s*(?P<landing_velocity_fps>[-+]?\\d+(?:\\.\\d+)?)\\s*feet/sec\\.",
+    "fuel_remaining_pattern": "(?P<fuel_remaining_units>[-+]?\\d+(?:\\.\\d+)?)\\s*units of fuel remaining\\."
+  },
+  "policy": {
+    "type": "physics",
+    "min_burn": 0,
+    "max_burn": 30,
+    "neural_model_path": "models/policy.pt",
+    "neural_norm_path": "models/policy_norm.json",
+    "lookahead": {
+      "burn_candidates_min": 0,
+      "burn_candidates_max": 15,
+      "burn_step": 1.0,
+      "terminal_burn_step": 0.5,
+      "terminal_altitude": 20.0,
+      "horizon_steps": 3,
+      "fuel_penalty_weight": 0.05
+    },
+    "physics": {
+      "target_v_terminal": 3.0,
+      "blend_altitude": 80.0,
+      "min_altitude_guard": 1.0,
+      "kp_velocity": 0.15,
+      "initial_burn_delay_turns": 0
+    },
+    "parameters": {
+      "target_v_high": 70,
+      "target_v_mid_high": 45,
+      "target_v_mid": 30,
+      "target_v_low": 20,
+      "target_v_final": 10,
+      "burn_small": 3,
+      "burn_medium": 6,
+      "burn_large": 10,
+      "burn_max": 15
+    }
+  },
+  "automation": {
+    "startup_delay_sec": 1.0,
+    "startup_commands": [
+      "RUN"
+    ],
+    "auto_responses": [
+      {
+        "pattern": "Another mission\\s*[YN]?$",
+        "response": "Y"
+      }
+    ]
+  },
+  "logging": {
+    "csv_path": "logs/turns.csv",
+    "episode_csv_path": "logs/episodes.csv"
+  },
+  "optimizer": {
+    "enabled": true,
+    "sigma": 1.0,
+    "param_ranges": {
+      "target_v_terminal": {
+        "min": 2.0,
+        "max": 8.0
+      },
+      "blend_altitude": {
+        "min": 40.0,
+        "max": 200.0
+      },
+      "min_altitude_guard": {
+        "min": 0.5,
+        "max": 5.0
+      },
+      "kp_velocity": {
+        "min": 0.05,
+        "max": 0.4
+      },
+      "initial_burn_delay_turns": {
+        "min": 0,
+        "max": 12
+      }
+    }
+  }
+}
