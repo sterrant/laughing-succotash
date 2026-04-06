@@ -31,8 +31,8 @@ class NeuralPolicy:
 
     def __init__(self, cfg: Dict):
         policy_cfg = cfg["policy"]
-        self.min_burn = int(policy_cfg.get("min_burn", 0))
-        self.max_burn = int(policy_cfg.get("max_burn", 30))
+        self.min_burn = float(policy_cfg.get("min_burn", 0))
+        self.max_burn = float(policy_cfg.get("max_burn", 30))
         self.model_path = Path(policy_cfg.get("neural_model_path", "models/policy.pt"))
         self.norm_path = Path(policy_cfg.get("neural_norm_path", "models/policy_norm.json"))
 
@@ -48,10 +48,12 @@ class NeuralPolicy:
         )
         self.model.load_state_dict(ckpt["state_dict"])
         self.model.eval()
+        self.burn_step = float(ckpt.get("burn_step", 1.0))
+        self.burn_min = float(ckpt.get("burn_min", 0.0))
 
-    def choose_burn(self, state: Optional[object]) -> int:
+    def choose_burn(self, state: Optional[object]) -> float:
         if state is None:
-            return 0
+            return 0.0
 
         alt = getattr(state, "altitude", None)
         vel = getattr(state, "velocity", None)
@@ -59,7 +61,7 @@ class NeuralPolicy:
         sec = getattr(state, "sec", None)
 
         if fuel is None or fuel <= 0:
-            return 0
+            return 0.0
 
         # Use conservative defaults if a parsed field is unexpectedly missing.
         x = torch.tensor(
@@ -75,11 +77,12 @@ class NeuralPolicy:
 
         with torch.no_grad():
             logits = self.model(x)
-            burn = int(torch.argmax(logits, dim=1).item())
+            burn_class = int(torch.argmax(logits, dim=1).item())
+            burn = self.burn_min + (float(burn_class) * self.burn_step)
 
         burn = max(self.min_burn, min(self.max_burn, burn))
-        burn = min(burn, int(fuel))
-        return burn
+        burn = min(burn, float(fuel))
+        return float(burn)
 
     def get_params(self) -> Dict:
         return {

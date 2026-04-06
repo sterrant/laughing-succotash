@@ -15,10 +15,14 @@ import torch.nn as nn
 
 
 FEATURES = ["altitude", "velocity", "fuel", "sec"]
+BURN_MIN = 0.0
+BURN_MAX = 30.0
+BURN_STEP = 0.1
+NUM_CLASSES = int(round((BURN_MAX - BURN_MIN) / BURN_STEP)) + 1
 
 
 class TinyMLP(nn.Module):
-    def __init__(self, in_dim: int = 4, hidden: int = 32, out_dim: int = 31):
+    def __init__(self, in_dim: int = 4, hidden: int = 32, out_dim: int = NUM_CLASSES):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(in_dim, hidden),
@@ -32,6 +36,16 @@ class TinyMLP(nn.Module):
         return self.net(x)
 
 
+def burn_to_class(burn: float) -> int:
+    clamped = max(BURN_MIN, min(BURN_MAX, float(burn)))
+    return int(round((clamped - BURN_MIN) / BURN_STEP))
+
+
+def class_to_burn(cls: int) -> float:
+    cls = max(0, min(NUM_CLASSES - 1, int(cls)))
+    return BURN_MIN + (float(cls) * BURN_STEP)
+
+
 def load_rows(path: Path) -> List[Tuple[List[float], int]]:
     rows: List[Tuple[List[float], int]] = []
     with path.open("r", encoding="utf-8", newline="") as fp:
@@ -39,10 +53,10 @@ def load_rows(path: Path) -> List[Tuple[List[float], int]]:
         for r in reader:
             try:
                 x = [float(r[f]) for f in FEATURES]
-                y = int(float(r["burn"]))
+                y = burn_to_class(float(r["burn"]))
             except (ValueError, KeyError, TypeError):
                 continue
-            if y < 0 or y > 30:
+            if y < 0 or y >= NUM_CLASSES:
                 continue
             rows.append((x, y))
     if not rows:
@@ -82,7 +96,7 @@ def main() -> None:
     x_train_n = (x_train - mean) / std
     x_val_n = (x_val - mean) / std
 
-    model = TinyMLP(in_dim=len(FEATURES), hidden=args.hidden, out_dim=31)
+    model = TinyMLP(in_dim=len(FEATURES), hidden=args.hidden, out_dim=NUM_CLASSES)
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -111,9 +125,12 @@ def main() -> None:
     torch.save(
         {
             "state_dict": model.state_dict(),
-            "num_classes": 31,
+            "num_classes": NUM_CLASSES,
             "hidden": args.hidden,
             "features": FEATURES,
+            "burn_step": BURN_STEP,
+            "burn_min": BURN_MIN,
+            "burn_max": BURN_MAX,
         },
         out_model,
     )

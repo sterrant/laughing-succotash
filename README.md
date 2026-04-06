@@ -69,6 +69,7 @@ python3 train_policy.py --turn-csv logs/turns.csv --out-model models/policy.pt -
 ```
 
 This trains a simple behavior-cloning model from `(altitude, velocity, fuel, sec) -> burn`.
+Burn labels are encoded at 0.1-unit resolution, so logged fractional burns (for example `4.9`) are preserved during training.
 
 To switch the agent from rule policy to neural policy, change one config field:
 
